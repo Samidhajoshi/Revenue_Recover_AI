@@ -1,0 +1,4 @@
+id,customer_id,customer_name,amount,billing_cycle,next_payment_date,status,payment_method,failure_reason,retry_count
+SUB1092,C821,Priya Iyer,999,MONTHLY,2026-08-25,FAILED,CARD,EXPIRED_CARD,0
+SUB1093,C450,Sneha Rao,499,MONTHLY,2026-08-26,FAILED,UPI,TEMPORARY_DECLINE,1
+SUB1094,C305,Arjun Mehta,2999,ANNUAL,2027-01-10,ACTIVE,CARD,,0

@@ -1,0 +1,123 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: recoverai-backend
+
+  # ---------------------------------------------------------------------
+  # DATASOURCE
+  # Default: H2 file-based DB so the app runs standalone, no MySQL needed.
+  # To switch to MySQL for real deployments, comment out the H2 block below
+  # and uncomment the MySQL block. Hibernate dialect is auto-detected in
+  # both cases so this is a drop-in swap.
+  # ---------------------------------------------------------------------
+  datasource:
+    url: jdbc:h2:file:./data/recoverai;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  # datasource:
+  #   url: jdbc:mysql://localhost:3306/recoverai?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+  #   driver-class-name: com.mysql.cj.jdbc.Driver
+  #   username: root
+  #   password: root
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+    # database-platform: org.hibernate.dialect.MySQLDialect   # uncomment for MySQL
+
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+logging:
+  level:
+    com.recoverai: INFO
+
+# ---------------------------------------------------------------------
+# RecoverAI application configuration
+# ---------------------------------------------------------------------
+recoverai:
+  ml-service:
+    base-url: http://localhost:8000
+    timeout-ms: 2000
+    enabled: true
+
+  policy:
+    max-retries: 3
+    quiet-hours:
+      start: "20:00"
+      end: "09:00"
+    minimum-recovery-probability: 0.4
+    high-value-threshold: 100000
+
+  simulator:
+    seed: 42
+    # probability of a SUCCESS outcome for each (failureReason, actionType) pair
+    probabilities:
+      TEMPORARY_DECLINE:
+        RETRY_PAYMENT: 0.60
+        PAYMENT_LINK: 0.45
+        SEND_MESSAGE: 0.30
+        ESCALATE: 0.35
+        STOP: 0.0
+      INSUFFICIENT_FUNDS:
+        RETRY_PAYMENT: 0.25
+        PAYMENT_LINK: 0.35
+        SEND_MESSAGE: 0.20
+        ESCALATE: 0.35
+        STOP: 0.0
+      EXPIRED_CARD:
+        RETRY_PAYMENT: 0.05
+        PAYMENT_LINK: 0.55
+        SEND_MESSAGE: 0.35
+        ESCALATE: 0.35
+        STOP: 0.0
+      GATEWAY_FAILURE:
+        RETRY_PAYMENT: 0.20
+        CHANGE_GATEWAY: 0.75
+        PAYMENT_LINK: 0.30
+        ESCALATE: 0.35
+        STOP: 0.0
+      ABANDONED_CHECKOUT:
+        RETRY_PAYMENT: 0.15
+        PAYMENT_LINK: 0.40
+        SEND_MESSAGE: 0.25
+        ESCALATE: 0.35
+        STOP: 0.0
+      DISPUTED:
+        RETRY_PAYMENT: 0.02
+        PAYMENT_LINK: 0.05
+        SEND_MESSAGE: 0.05
+        ESCALATE: 0.30
+        STOP: 0.0
+      DEFAULT:
+        RETRY_PAYMENT: 0.20
+        PAYMENT_LINK: 0.30
+        SEND_MESSAGE: 0.20
+        CHANGE_GATEWAY: 0.50
+        ESCALATE: 0.30
+        STOP: 0.0
+    gateway-reroute-success-rate: 0.80
+
+  llm:
+    enabled: true
+    base-url: https://api.groq.com/openai/v1
+    model: openai/gpt-oss-120b
+    default-language: hinglish
+
+cors:
+  allowed-origins: http://localhost:5173

@@ -1,0 +1,912 @@
+AI REVENUE RECOVERY — COMPLETE IMPLEMENTATION PLAN
+
+Working Name:
+RecoverAI — Autonomous Revenue Recovery Controller
+
+CORE CONCEPT
+Build one reusable revenue-recovery agent that handles three scenarios:
+1. Failed payment recovery
+2. Subscription renewal recovery
+3. Payment gateway degradation / rerouting
+
+Core loop:
+Detect revenue at risk
+-> Diagnose why
+-> Prioritize
+-> Select intervention
+-> Validate against policies
+-> Execute
+-> Observe outcome
+-> Recover / Retry / Escalate / Stop
+-> Audit everything
+
+CORE DESIGN PRINCIPLE
+AI decides what is likely to work.
+Policy decides what is allowed.
+The state machine decides what happens next.
+
+
+1. ARCHITECTURE
+
+React Dashboard
+    |
+    | REST
+    v
+Spring Boot Core Service
+    |
+    +-- MySQL
+    |     +-- customers
+    |     +-- transactions
+    |     +-- subscriptions
+    |     +-- recovery_cases
+    |     +-- interventions
+    |     +-- audit_logs
+    |
+    +-- Agent Orchestrator
+    |     +-- Risk
+    |     +-- Diagnosis
+    |     +-- Decision Engine
+    |     +-- Policy Engine
+    |     +-- State Machine
+    |     +-- Action Executor
+    |
+    +-- FastAPI ML Service
+    |     +-- Risk scoring
+    |     +-- Root-cause diagnosis
+    |     +-- Gateway anomaly detection
+    |
+    +-- LLM API
+          +-- Recovery-message generation
+          +-- Customer response classification
+          +-- Promise-to-pay extraction
+
+
+2. TECHNOLOGY STACK
+
+Frontend:
+- React
+- Vite
+- Axios
+- Recharts
+- CSS/Tailwind
+
+Backend:
+- Java 17+
+- Spring Boot
+- Spring Web
+- Spring Data JPA
+- MySQL
+- Jackson CSV / Apache Commons CSV
+
+ML:
+- Python
+- FastAPI
+- pandas
+- numpy
+- scikit-learn
+
+AI:
+- LLM only for messages, natural-language intent, and promise-to-pay extraction
+
+Development:
+- Git
+- Postman
+- Docker near the end
+
+
+3. SCENARIO A — FAILED PAYMENT RECOVERY
+
+Input:
+PAYMENT_FAILED
+
+Example:
+Customer: C102
+Amount: Rs 8,500
+Payment method: UPI
+Bank: Bank C
+Failure reason: TEMPORARY_DECLINE
+
+Workflow:
+Detect
+-> Diagnose
+-> Calculate recovery probability
+-> Select retry
+-> Policy check
+-> Retry
+-> Observe result
+-> SUCCESS
+-> Recover Rs 8,500
+-> STOP
+
+Possible actions:
+- RETRY_PAYMENT
+- SEND_PAYMENT_LINK
+- ALTERNATE_METHOD
+- ESCALATE
+- STOP
+
+
+4. SCENARIO B — SUBSCRIPTION RECOVERY
+
+Input:
+SUBSCRIPTION_RENEWAL_FAILED
+
+Example:
+Subscription: SUB1092
+Customer: C821
+Amount: Rs 999
+Failure: EXPIRED_CARD
+
+Workflow:
+Diagnose
+-> Determine expired card cannot be fixed by blind retry
+-> Send payment-update message
+-> Wait
+-> Observe payment
+-> Recover or escalate
+
+Possible actions:
+- RETRY
+- PAYMENT_LINK
+- REMINDER
+- ESCALATE
+- CANCEL/STOP
+
+
+5. SCENARIO C — PAYMENT GATEWAY DEGRADATION
+
+Input:
+GATEWAY_DEGRADATION
+
+Example:
+Gateway A
+Baseline failure rate: 2.3%
+Current failure rate: 17.8%
+
+Diagnosis:
+Gateway
+-> Payment method
+-> Bank
+-> Region
+-> Time window
+
+Example root cause:
+Gateway A
+  -> UPI
+      -> Bank C
+          -> North region
+
+Action:
+Route affected transactions to Gateway B.
+
+Policy checks:
+- Alternate gateway available
+- Success rate above threshold
+- Cost increase within allowed limit
+- Rerouting permitted
+
+Then:
+Reroute
+-> Observe success rate
+-> Calculate protected/recovered revenue
+
+
+6. DATABASE DESIGN
+
+CUSTOMERS
+- id
+- name
+- email
+- phone
+- ltv
+- total_payments
+- successful_payments
+- failed_payments
+- segment
+- opted_out
+- created_at
+
+TRANSACTIONS
+- id
+- customer_id
+- amount
+- currency
+- payment_method
+- gateway
+- bank
+- region
+- status
+- failure_reason
+- attempt_number
+- created_at
+- updated_at
+
+SUBSCRIPTIONS
+- id
+- customer_id
+- amount
+- billing_cycle
+- next_payment_date
+- status
+- payment_method
+- failure_reason
+- retry_count
+- created_at
+
+GATEWAYS
+- id
+- name
+- success_rate
+- failure_rate
+- baseline_failure_rate
+- status
+- cost_per_transaction
+- last_updated
+
+RECOVERY_CASES
+- id
+- entity_type
+- entity_id
+- customer_id
+- amount_at_risk
+- risk_score
+- risk_tier
+- diagnosis
+- recovery_probability
+- current_state
+- current_attempt
+- max_attempts
+- selected_action
+- recovered_amount
+- created_at
+- updated_at
+
+entity_type:
+- PAYMENT
+- SUBSCRIPTION
+- GATEWAY
+
+INTERVENTIONS
+- id
+- recovery_case_id
+- type
+- attempt_number
+- reason
+- status
+- expected_recovery_probability
+- executed_at
+- completed_at
+- result
+
+Types:
+- RETRY_PAYMENT
+- SEND_MESSAGE
+- PAYMENT_LINK
+- CHANGE_GATEWAY
+- ESCALATE
+- STOP
+
+AUDIT_LOGS
+- id
+- recovery_case_id
+- event_type
+- previous_state
+- new_state
+- actor
+- reason
+- metadata
+- timestamp
+
+
+7. STATE MACHINE
+
+DETECTED
+    ->
+DIAGNOSING
+    ->
+DIAGNOSED
+    ->
+DECIDING
+    ->
+POLICY_CHECK
+    ->
+INTERVENING
+    ->
+WAITING
+    ->
+RECOVERED
+
+Alternative paths:
+WAITING -> NEXT_INTERVENTION
+WAITING -> ESCALATED
+WAITING -> STOPPED
+
+Important:
+No action should bypass the state machine.
+
+
+8. POLICY ENGINE
+
+Example rules:
+
+TEMPORARY_DECLINE
+AND retry_count < 3
+AND opted_out = false
+-> RETRY
+
+EXPIRED_CARD
+-> SEND_PAYMENT_UPDATE
+
+retry_count >= 3
+-> STOP / ESCALATE
+
+DISPUTED = true
+-> HUMAN_ESCALATION
+
+payment_status = SUCCESS
+-> STOP ALL RECOVERY ACTIONS
+
+Outside allowed communication hours
+-> DO NOT SEND MESSAGE
+
+Example configurable policy:
+{
+  "maxRetries": 3,
+  "quietHours": {
+    "start": "20:00",
+    "end": "09:00"
+  },
+  "minimumRecoveryProbability": 0.4,
+  "highValueThreshold": 100000
+}
+
+
+9. FASTAPI ML SERVICE
+
+Suggested structure:
+
+/ml
+  risk.py
+  diagnosis.py
+  gateway_anomaly.py
+  segmentation.py
+  schemas.py
+  main.py
+
+Endpoints:
+POST /risk
+POST /diagnose
+POST /gateway/anomaly
+
+Risk input:
+- amount
+- previous_failures
+- successful_payments
+- customer_ltv
+- failure_reason
+
+Risk output:
+- risk_score
+- risk_tier
+- recovery_probability
+
+Start simple:
+- weighted scoring
+- logistic regression
+- random forest if useful
+- statistical group-by slicing for root cause
+
+Do not over-engineer the ML.
+
+
+10. ROOT-CAUSE DIAGNOSIS
+
+For payment failures, analyze:
+- bank
+- payment_method
+- region
+- gateway
+- failure_reason
+- time
+
+Example:
+Overall failure rate: 3.2%
+Bank A: 2.1%
+Bank B: 2.8%
+Bank C: 14.7%
+
+Possible diagnosis:
+Bank C + UPI + North region
+
+The first implementation can use ranked failure-rate deltas instead of complicated explainable ML.
+
+
+11. LLM INTEGRATION
+
+Use the LLM only where natural language is valuable.
+
+USE CASE 1 — MESSAGE GENERATION
+
+Input:
+- customer name
+- amount
+- failure reason
+- language
+
+Example output:
+"Hi Rahul, aapka Rs 4,500 ka payment complete nahi ho paya. Aap chahein toh dobara payment try kar sakte hain."
+
+USE CASE 2 — PROMISE-TO-PAY
+
+Customer:
+"Main Friday ko Rs 20,000 pay kar dunga."
+
+LLM extracts:
+{
+  "intent": "PROMISE_TO_PAY",
+  "amount": 20000,
+  "promised_date": "YYYY-MM-DD"
+}
+
+Spring Boot validates and stores this.
+
+Important:
+The LLM must NOT directly execute financial actions.
+
+
+12. SYNTHETIC DATA GENERATOR
+
+Build this early.
+
+Suggested structure:
+/data_generator
+  generate_customers.py
+  generate_transactions.py
+  generate_subscriptions.py
+  generate_gateways.py
+  scenario_config.json
+
+Target:
+- 1,000 customers
+- 10,000 transactions
+- 1,000 subscriptions
+- multiple gateways
+
+Suggested transaction distribution:
+60% successful
+10% temporary decline
+5% insufficient funds
+5% expired card
+5% gateway failure
+5% abandoned checkout
+5% repeated failure
+5% ambiguous/edge cases
+
+Every synthetic record should contain ground truth.
+
+Example:
+transaction_id
+expected_recovery_action
+expected_outcome
+recoverable
+expected_amount_recovered
+
+
+13. RECOVERY SIMULATOR
+
+Create a deterministic/configurable simulator.
+
+Example probabilities:
+temporary_decline + retry -> ~60% success
+insufficient_funds + retry -> ~25%
+expired_card + retry -> ~5%
+expired_card + payment_update -> ~55%
+
+Do not hardcode successful outcomes just to make the numbers look good.
+
+Store simulation assumptions in configuration so results are reproducible.
+
+
+14. AGENT ORCHESTRATION LOOP
+
+event arrives
+    ->
+create recovery case
+    ->
+calculate risk
+    ->
+diagnose
+    ->
+generate possible actions
+    ->
+rank actions
+    ->
+policy validation
+    ->
+execute best allowed action
+    ->
+record result
+    ->
+did payment recover?
+
+YES -> RECOVERED
+
+NO ->
+are more actions allowed?
+
+YES -> next cycle
+
+NO -> STOP / ESCALATE
+
+
+15. REST APIs
+
+DATA INGESTION
+POST /api/import/transactions
+POST /api/import/subscriptions
+POST /api/import/gateways
+
+DASHBOARD
+GET /api/dashboard/summary
+GET /api/dashboard/recovery-by-type
+GET /api/dashboard/timeline
+
+RECOVERY
+GET /api/recovery
+GET /api/recovery/{id}
+POST /api/recovery/{id}/run
+POST /api/recovery/run-batch
+
+AGENT
+POST /api/agent/analyze/{id}
+POST /api/agent/execute/{id}
+POST /api/agent/run-batch
+
+SIMULATION
+POST /api/simulation/run
+POST /api/simulation/advance-time
+
+AUDIT
+GET /api/audit/{recoveryCaseId}
+
+
+16. FRONTEND
+
+Build four main pages.
+
+PAGE 1 — OVERVIEW
+Cards:
+- Revenue at Risk
+- Recoverable Revenue
+- Recovered Revenue
+- Recovery Rate
+- Active Cases
+- Escalations
+
+Charts:
+- Recovery by scenario
+- Intervention outcomes
+- Revenue recovered over time
+
+PAGE 2 — RECOVERY CASES
+Columns:
+- Customer
+- Type
+- Amount
+- Risk
+- Diagnosis
+- Selected action
+- Status
+
+Filters:
+- Payment
+- Subscription
+- Gateway
+- High Risk
+- Recovered
+- Escalated
+
+PAGE 3 — CASE DETAILS
+Show:
+- Amount at risk
+- Risk score
+- Recovery probability
+- Diagnosis
+- Agent decision
+- Alternative actions
+- Policy checks
+- Stopping rule
+- Audit timeline
+- Final outcome
+
+PAGE 4 — BATCH SIMULATION
+Button:
+RUN 10,000 CASES
+
+Show:
+- cases processed
+- interventions
+- recovered amount
+- recovery rate
+- escalations
+- safely stopped cases
+
+
+17. METRICS
+
+FINANCIAL:
+- Revenue at risk
+- Recoverable revenue
+- Recovered revenue
+- Recovery rate
+- Incremental recovery vs baseline
+
+OPERATIONAL:
+- Cases processed
+- Interventions
+- Successful interventions
+- Escalations
+- Stopped workflows
+
+SAFETY:
+- Policy violations
+- Repeated attempts
+- Opt-out violations
+- Disputed cases automatically stopped
+
+Ideal:
+Policy violations = 0
+
+
+18. BASELINE COMPARISON
+
+Create a simple baseline:
+Every failed payment -> retry once
+
+Run the exact same synthetic batch.
+
+Example:
+Baseline:
+Rs 10.2L recovered
+
+RecoverAI:
+Rs 16.8L recovered
+
+Report:
+Incremental recovery = Rs 6.6L
+Improvement = 64.7%
+
+This is stronger than reporting an absolute recovery number alone.
+
+
+19. AUDIT TRAIL
+
+Every recovery action must answer:
+
+WHAT HAPPENED?
+PAYMENT_FAILED
+
+WHY?
+Temporary bank decline
+
+WHAT DID THE AI RECOMMEND?
+Retry
+
+WHY?
+Recovery probability = 78%
+
+WAS IT ALLOWED?
+Yes
+
+WHAT HAPPENED?
+Payment succeeded
+
+WHAT WAS RECOVERED?
+Rs 48,000
+
+Example event sequence:
+PAYMENT_FAILED
+DIAGNOSIS_COMPLETED
+ACTION_SELECTED
+POLICY_APPROVED
+ACTION_EXECUTED
+PAYMENT_SUCCESS
+RECOVERY_CONFIRMED
+WORKFLOW_STOPPED
+
+
+20. IMPLEMENTATION PHASES
+
+PHASE 0 — DESIGN
+Day 1
+- Finalize entities
+- Define states
+- Define rules
+- Define synthetic scenarios
+- Define APIs
+- Finalize architecture
+
+PHASE 1 — BACKEND SKELETON
+Day 1–2
+- Spring Boot
+- MySQL
+- JPA entities
+- repositories
+- CSV ingestion
+
+Goal:
+Upload CSV -> DB
+
+PHASE 2 — DETECTION
+Day 2
+- failed payment detection
+- subscription failure detection
+- gateway anomaly detection
+
+Goal:
+Data -> revenue-at-risk cases
+
+PHASE 3 — STATE MACHINE + POLICY
+Day 3
+- state machine
+- stopping rules
+- retry limits
+- opt-out rules
+- dispute escalation
+- quiet hours
+
+This is a must-have.
+
+PHASE 4 — FASTAPI
+Day 3–4
+- risk scoring
+- root-cause diagnosis
+- gateway anomaly detection
+
+PHASE 5 — RECOVERY SIMULATOR
+Day 4
+- retry
+- payment link
+- message
+- gateway reroute
+- configurable outcomes
+
+PHASE 6 — AGENT LOOP
+Day 4–5
+Connect:
+Detection
+-> ML
+-> Decision
+-> Policy
+-> Simulator
+-> State update
+
+At this point the core product works.
+
+PHASE 7 — REACT
+Day 5
+Build:
+- Overview
+- Recovery cases
+- Case details
+- Batch simulation
+
+PHASE 8 — LLM
+Day 5–6
+- recovery messages
+- Hinglish
+- promise-to-pay extraction
+
+Only after core system works.
+
+PHASE 9 — METRICS + BASELINE
+Day 6
+Run:
+- 1,000 cases
+- 5,000 cases
+- 10,000 cases
+
+Compare baseline vs agent.
+
+PHASE 10 — DEMO HARDENING
+Final day
+Prepare deterministic scenarios:
+1. Temporary payment failure -> retry -> recovered
+2. Expired subscription -> message -> recovered
+3. Gateway degradation -> root cause -> reroute -> protected revenue
+4. Unsafe case -> stop -> escalate
+
+
+21. TEAM DIVISION
+
+PERSON 1 — BACKEND / AGENT
+- Spring Boot
+- MySQL
+- state machine
+- policy engine
+- orchestration
+
+PERSON 2 — ML / DATA
+- FastAPI
+- risk
+- diagnosis
+- gateway anomaly detection
+- synthetic data
+
+PERSON 3 — FRONTEND
+- React
+- dashboard
+- charts
+- case details
+- audit timeline
+
+PERSON 4 — INTEGRATION / AI / DEMO
+- LLM
+- simulation
+- metrics
+- testing
+- Docker
+- presentation
+
+For a 3-person team:
+Combine ML + Integration.
+
+
+22. MVP PRIORITY
+
+MUST HAVE:
+- Payment failures
+- Subscription failures
+- Risk detection
+- Diagnosis
+- Intervention selection
+- Policy engine
+- State machine
+- Simulated recovery
+- Batch processing
+- Recovered revenue metric
+- Audit log
+- React dashboard
+
+NICE TO HAVE:
+- Gateway degradation
+- LLM messages
+- Hinglish
+- Promise-to-pay
+
+STRETCH:
+- Checkout abandonment
+- B2B receivables
+- Voice
+- Dynamic intervention optimization
+
+
+23. FINAL DEMO FLOW
+
+1. Generate/upload 10,000 synthetic events.
+2. Show dashboard with revenue at risk.
+3. Click a high-value failed payment.
+4. Show diagnosis and recovery probability.
+5. Show available interventions.
+6. Show policy validation.
+7. Execute retry.
+8. Show successful payment.
+9. Show Rs amount recovered.
+10. Show audit timeline.
+11. Open gateway degradation case.
+12. Show root-cause slice.
+13. Show rerouting decision.
+14. Run full batch.
+15. Show baseline vs RecoverAI.
+16. Show recovered revenue and recovery rate.
+17. Show escalated/unsafe cases and why the system stopped.
+
+
+24. FINAL PITCH
+
+"RecoverAI is an autonomous revenue recovery controller. Instead of simply predicting which payments are at risk, it diagnoses the cause, selects and executes a bounded intervention, observes the outcome, and either recovers the revenue, continues with the next allowed action, or escalates. Every decision is policy-validated and audited, and we measure the actual revenue recovered across the entire batch."
+
+Core principle:
+AI decides what is likely to work.
+Policy decides what is allowed.
+The state machine decides what happens next.

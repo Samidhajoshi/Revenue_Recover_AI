@@ -1,0 +1,145 @@
+{
+  "seed": 42,
+  "currency": "INR",
+
+  "customers": {
+    "count": 1000,
+    "segments": {
+      "high_value": 0.15,
+      "regular": 0.60,
+      "at_risk": 0.15,
+      "new": 0.10
+    },
+    "opt_out_rate": 0.08,
+    "ltv_range_by_segment": {
+      "high_value": [150000, 800000],
+      "regular": [20000, 150000],
+      "at_risk": [5000, 40000],
+      "new": [0, 15000]
+    }
+  },
+
+  "gateways": [
+    {
+      "id": "GW1",
+      "name": "Gateway A",
+      "baseline_failure_rate": 0.023,
+      "current_failure_rate": 0.178,
+      "degraded": true,
+      "cost_per_transaction": 2.5,
+      "status": "DEGRADED",
+      "degradation_signal": {
+        "payment_method": "UPI",
+        "bank": "Bank C",
+        "region": "North",
+        "concentration": 0.80
+      }
+    },
+    {
+      "id": "GW2",
+      "name": "Gateway B",
+      "baseline_failure_rate": 0.021,
+      "current_failure_rate": 0.024,
+      "degraded": false,
+      "cost_per_transaction": 2.0,
+      "status": "HEALTHY"
+    },
+    {
+      "id": "GW3",
+      "name": "Gateway C",
+      "baseline_failure_rate": 0.030,
+      "current_failure_rate": 0.032,
+      "degraded": false,
+      "cost_per_transaction": 1.8,
+      "status": "HEALTHY"
+    },
+    {
+      "id": "GW4",
+      "name": "Gateway D",
+      "baseline_failure_rate": 0.025,
+      "current_failure_rate": 0.027,
+      "degraded": false,
+      "cost_per_transaction": 2.2,
+      "status": "HEALTHY"
+    }
+  ],
+
+  "transactions": {
+    "count": 10000,
+    "amount_range": [199, 50000],
+    "payment_methods": ["UPI", "CARD", "NETBANKING", "WALLET"],
+    "banks": ["Bank A", "Bank B", "Bank C", "Bank D", "Bank E"],
+    "regions": ["North", "South", "East", "West"],
+    "distribution": {
+      "successful": 0.60,
+      "temporary_decline": 0.10,
+      "insufficient_funds": 0.05,
+      "expired_card": 0.05,
+      "gateway_failure": 0.05,
+      "abandoned_checkout": 0.05,
+      "repeated_failure": 0.05,
+      "ambiguous": 0.05
+    },
+    "recovery_actions": {
+      "temporary_decline": {
+        "expected_recovery_action": "RETRY_PAYMENT",
+        "recovery_probability": 0.60
+      },
+      "insufficient_funds": {
+        "expected_recovery_action": "RETRY_PAYMENT",
+        "recovery_probability": 0.25
+      },
+      "expired_card": {
+        "expected_recovery_action": "SEND_PAYMENT_LINK",
+        "recovery_probability": 0.55,
+        "note": "expired_card + retry only reaches ~5%; payment-update / SEND_PAYMENT_LINK is the correct action"
+      },
+      "expired_card_retry_only": {
+        "expected_recovery_action": "RETRY_PAYMENT",
+        "recovery_probability": 0.05
+      },
+      "gateway_failure": {
+        "expected_recovery_action": "ALTERNATE_METHOD",
+        "recovery_probability": 0.45
+      },
+      "abandoned_checkout": {
+        "expected_recovery_action": "SEND_PAYMENT_LINK",
+        "recovery_probability": 0.35
+      },
+      "repeated_failure": {
+        "expected_recovery_action": "ESCALATE",
+        "recovery_probability": 0.08
+      },
+      "ambiguous": {
+        "expected_recovery_action": "ESCALATE",
+        "recovery_probability": 0.15
+      }
+    }
+  },
+
+  "subscriptions": {
+    "count": 1000,
+    "amount_range": [199, 4999],
+    "billing_cycles": ["monthly", "quarterly", "annual"],
+    "billing_cycle_weights": [0.70, 0.20, 0.10],
+    "status_distribution": {
+      "active": 0.65,
+      "past_due": 0.20,
+      "cancelled": 0.10,
+      "paused": 0.05
+    },
+    "failure_reasons_when_past_due": {
+      "expired_card": 0.35,
+      "insufficient_funds": 0.30,
+      "temporary_decline": 0.20,
+      "payment_method_removed": 0.15
+    },
+    "recovery_actions": {
+      "expired_card": { "expected_recovery_action": "SEND_PAYMENT_LINK", "recovery_probability": 0.55 },
+      "insufficient_funds": { "expected_recovery_action": "RETRY_PAYMENT", "recovery_probability": 0.25 },
+      "temporary_decline": { "expected_recovery_action": "RETRY_PAYMENT", "recovery_probability": 0.60 },
+      "payment_method_removed": { "expected_recovery_action": "SEND_PAYMENT_LINK", "recovery_probability": 0.40 }
+    },
+    "max_retry_count": 3
+  }
+}

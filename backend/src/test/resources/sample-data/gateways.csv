@@ -1,0 +1,3 @@
+id,name,success_rate,failure_rate,baseline_failure_rate,status,cost_per_transaction
+GW_A,Gateway A,82.2,17.8,2.3,DEGRADED,2.5
+GW_B,Gateway B,97.5,2.5,2.1,HEALTHY,2.2
