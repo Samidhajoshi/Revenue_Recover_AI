@@ -1,0 +1,58 @@
+flowchart TB
+    subgraph gen["Data Generator (Python, seeded)"]
+        G1[generate_customers.py]
+        G2[generate_gateways.py]
+        G3[generate_transactions.py]
+        G4[generate_subscriptions.py]
+    end
+
+    subgraph ml["ML Service — FastAPI (stateless scoring, no trained models)"]
+        M1["/risk — weighted risk score + recovery probability"]
+        M2["/diagnose — ranked failure-rate deltas"]
+        M3["/gateway/anomaly — delta/ratio anomaly detection"]
+        M4["segmentation — LTV / reliability buckets"]
+    end
+
+    subgraph be["Backend — Spring Boot"]
+        direction TB
+        B1[DetectionService]
+        B2[CounterfactualEvaluationService]
+        B3[ActionRankingService]
+        B4[PolicyEngine]
+        B5[AgentOrchestratorService\nstate machine]
+        B6[(H2 Database)]
+        B7[LlmService]
+        B1 --> B2 --> B3 --> B4 --> B5
+        B5 --> B6
+        B7 --> B6
+    end
+
+    subgraph llm["Groq LLM (OpenAI-compatible)"]
+        L1[Recovery message generation]
+        L2[Promise-to-pay extraction]
+    end
+
+    subgraph fe["Frontend — React"]
+        F1[Overview]
+        F2[Recovery Cases]
+        F3[Case Details]
+        F4[Customers]
+        F5[Batch Simulation]
+    end
+
+    gen -- CSV import --> B1
+    B1 -- transaction/case features --> M1
+    B1 -- transaction batches --> M2
+    B1 -- gateway rates --> M3
+    M1 -- risk tier + probability --> B2
+    M2 -- diagnosis --> B5
+    M3 -- anomaly + recommendation --> B1
+    B4 -- approved/blocked actions --> B5
+    B7 <--> llm
+    B5 -- REST API --> fe
+    B6 -- REST API --> fe
+
+    classDef svc fill:#e3e9f1,stroke:#35507a,color:#1f3654;
+    classDef data fill:#dfeee4,stroke:#29684a,color:#1a4432;
+    class ml,be svc
+    class gen,B6 data

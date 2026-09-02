@@ -114,16 +114,22 @@ export default function CaseDetails() {
         <>
           <div className="card">
             <div className="detail-grid">
-              <Detail label="Customer" value={d.customerName} />
-              <Detail label="Amount at risk" value={formatCurrency(d.amount)} />
+              <Detail label="Customer" value={d.customerId} />
+              <Detail label="Amount at risk" value={formatCurrency(d.amountAtRisk)} />
               <Detail label="Risk score" value={d.riskScore} />
               <Detail label="Risk tier" value={d.riskTier} />
               <Detail label="Recovery probability" value={formatPercent(d.recoveryProbability)} />
               <Detail label="Diagnosis" value={d.diagnosis} />
               <Detail label="Agent decision" value={d.selectedAction} />
               <Detail label="Current state" value={d.currentState} />
-              <Detail label="Stopping rule" value={d.stoppingRule || "None triggered"} />
-              <Detail label="Final outcome" value={d.finalOutcome || d.outcome} />
+              <Detail
+                label="Final outcome"
+                value={
+                  d.currentState === "RECOVERED"
+                    ? `Recovered ${formatCurrency(d.recoveredAmount)}`
+                    : d.currentState
+                }
+              />
             </div>
             <div className="actions-row">
               <button className="btn" onClick={handleRun} disabled={running}>

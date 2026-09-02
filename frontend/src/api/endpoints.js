@@ -13,6 +13,9 @@ export const runRecoveryCase = (id) => api.post(`/api/recovery/${id}/run`);
 // Audit
 export const getAuditTrail = (recoveryCaseId) => api.get(`/api/audit/${recoveryCaseId}`);
 
+// Customers (the records uploaded via customers.csv, or auto-created from transactions/subscriptions)
+export const getCustomers = (q) => api.get("/api/customers", { params: q ? { q } : {} });
+
 // Counterfactual evaluation ("what-if" recovery analysis)
 export const getCounterfactuals = (id) => api.get(`/api/recovery/${id}/counterfactuals`);
 export const reEvaluateCounterfactuals = (id) => api.post(`/api/recovery/${id}/evaluate`);
@@ -29,6 +32,7 @@ export const runSimulation = () => api.post("/api/simulation/run");
 export const detectAtRiskCases = () => api.post("/api/agent/detect");
 
 // Data import
+export const importCustomers = (file) => uploadCsv("/api/import/customers", file);
 export const importTransactions = (file) => uploadCsv("/api/import/transactions", file);
 export const importSubscriptions = (file) => uploadCsv("/api/import/subscriptions", file);
 export const importGateways = (file) => uploadCsv("/api/import/gateways", file);

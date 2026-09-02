@@ -39,6 +39,7 @@ com\recoverai\backend\dto\llm\ChatCompletionRequest$ChatCompletionRequestBuilder
 com\recoverai\backend\dto\ml\GatewayAnomalyRequest.class
 com\recoverai\backend\entity\Transaction.class
 com\recoverai\backend\config\GroqClientConfig.class
+com\recoverai\backend\controller\CustomerController.class
 com\recoverai\backend\controller\SimulationController.class
 com\recoverai\backend\dto\PolicyDecision$PolicyDecisionBuilder.class
 com\recoverai\backend\config\LlmProperties.class

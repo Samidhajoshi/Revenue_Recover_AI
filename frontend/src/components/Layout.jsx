@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 const links = [
   { to: "/", label: "Overview", end: true, icon: "▦" },
   { to: "/cases", label: "Recovery Cases", icon: "≡" },
+  { to: "/customers", label: "Customers", icon: "◍" },
   { to: "/simulation", label: "Batch Simulation", icon: "▷" },
 ];
 
