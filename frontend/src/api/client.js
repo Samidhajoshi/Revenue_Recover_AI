@@ -1,13 +1,28 @@
 import axios from "axios";
 
-// Backend contract: Spring Boot REST API served on http://localhost:8082.
-// (Port 8080 is taken by a local Oracle TNS Listener on this machine.)
-// We use an explicit baseURL (rather than a Vite dev proxy) so the same
-// build works identically in `npm run dev` and a static `npm run build`
-// preview without needing a proxy config duplicated in two places.
+// Backend contract: Spring Boot REST API. Defaults to localhost:8082 for
+// local dev (port 8080 is taken by a local Oracle TNS Listener on this
+// machine); set VITE_API_BASE_URL at build time (e.g. on Vercel, pointed at
+// the Render backend URL) to target a deployed backend instead. We use an
+// explicit baseURL (rather than a Vite dev proxy) so the same build works
+// identically in `npm run dev` and a static `npm run build` preview.
 const api = axios.create({
-  baseURL: "http://localhost:8082",
-  timeout: 15000,
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8082",
+  // Detection/batch-run scan the whole dataset synchronously and can run well
+  // past 15s on a real-sized CSV - a short timeout here reads to the user as
+  // "can't reach the backend" when it's actually just still working.
+  timeout: 120000,
 });
+
+// Distinguishes a real connection failure from a request that's just still
+// running - detect/run-batch can legitimately take well over a minute on a
+// full dataset, and that should never read as "backend is down".
+export function describeApiError(err) {
+  if (err?.response) return err.response.data?.message || err.message;
+  if (err?.code === "ECONNABORTED") {
+    return "Still working - this can take a minute or more on a large dataset. It'll finish in the background; check back shortly.";
+  }
+  return "Couldn't reach the backend. Is the API running on http://localhost:8082?";
+}
 
 export default api;

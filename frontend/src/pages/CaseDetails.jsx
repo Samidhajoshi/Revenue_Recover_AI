@@ -11,6 +11,7 @@ import {
 } from "../api/endpoints";
 import { EmptyBanner, ErrorBanner, LoadingBanner } from "../components/StatusBanner";
 import { formatCurrency, formatDate, formatPercent } from "../utils/format";
+import { describeApiError } from "../api/client";
 import { useState } from "react";
 
 export default function CaseDetails() {
@@ -44,7 +45,7 @@ export default function CaseDetails() {
       const res = await generateRecoveryMessage(id, language);
       setMessageResult(res.data);
     } catch (err) {
-      setMessageError(!err?.response ? "Couldn't reach the backend." : err?.response?.data?.message || err.message);
+      setMessageError(describeApiError(err));
     } finally {
       setMessageLoading(false);
     }
@@ -59,7 +60,7 @@ export default function CaseDetails() {
       setPtpResult(res.data);
       audit.reload();
     } catch (err) {
-      setPtpError(!err?.response ? "Couldn't reach the backend." : err?.response?.data?.message || err.message);
+      setPtpError(describeApiError(err));
     } finally {
       setPtpLoading(false);
     }
@@ -76,9 +77,7 @@ export default function CaseDetails() {
       audit.reload();
       cf.reload();
     } catch (err) {
-      setRunError(
-        !err?.response ? "Couldn't reach the backend." : err?.response?.data?.message || err.message
-      );
+      setRunError(describeApiError(err));
     } finally {
       setRunning(false);
     }
@@ -99,6 +98,12 @@ export default function CaseDetails() {
   const cfEvaluations = asList(cf.data?.evaluations);
   const selectedEval = cfEvaluations.find((e) => e.selected);
   const shownEval = whatIf || selectedEval;
+
+  const escalationEvent = [...auditEvents].reverse().find((e) => e.newState === "ESCALATED");
+  const blockedActions = cfEvaluations.filter((e) => !e.allowed);
+  const bestBlockedByRecovery = [...blockedActions].sort(
+    (a, b) => (b.expectedRecovery ?? 0) - (a.expectedRecovery ?? 0)
+  )[0];
 
   return (
     <div className="page">
@@ -138,6 +143,39 @@ export default function CaseDetails() {
               {runError && <span className="inline-error">{runError}</span>}
             </div>
           </div>
+
+          {d.currentState === "ESCALATED" && (
+            <div className="card" style={{ borderLeft: "3px solid var(--risk-high, #c0362c)" }}>
+              <h3 style={{ marginTop: 0 }}>Escalation summary</h3>
+              <p>
+                <strong>{d.customerId}</strong>'s {(d.entityType || "case").toLowerCase()} case, worth{" "}
+                <strong>{formatCurrency(d.amountAtRisk)}</strong>, was handed to a human because{" "}
+                {escalationEvent?.reason
+                  ? <>{escalationEvent.reason.charAt(0).toLowerCase() + escalationEvent.reason.slice(1)}</>
+                  : "no policy-compliant automated action was left to try"}
+                .
+              </p>
+              {d.diagnosis && (
+                <p>
+                  <strong>Likely root cause:</strong> {d.diagnosis}
+                </p>
+              )}
+              {bestBlockedByRecovery && (
+                <p>
+                  <strong>Best blocked alternative:</strong> {bestBlockedByRecovery.action} was estimated to
+                  recover {formatCurrency(bestBlockedByRecovery.expectedRecovery)} (
+                  {formatPercent(bestBlockedByRecovery.probability)} probability) but policy blocked it —{" "}
+                  {bestBlockedByRecovery.policyReason}. A human may still be able to take this action manually
+                  if the situation warrants it.
+                </p>
+              )}
+              <p className="muted">
+                Risk tier <strong>{d.riskTier || "-"}</strong> · risk score{" "}
+                <strong>{d.riskScore ?? "-"}</strong> · model recovery probability{" "}
+                <strong>{formatPercent(d.recoveryProbability)}</strong>.
+              </p>
+            </div>
+          )}
 
           <div className="card">
             <div className="actions-row" style={{ marginTop: 0, justifyContent: "space-between" }}>

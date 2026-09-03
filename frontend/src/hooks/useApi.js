@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { describeApiError } from "../api/client";
 
 // Generic fetch hook: runs `fetcher` (a function returning an axios promise),
 // tracks loading/error/data, and never lets a network failure crash the page.
@@ -18,11 +19,7 @@ export default function useApi(fetcher, deps = []) {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(
-            err?.code === "ERR_NETWORK" || !err?.response
-              ? "Couldn't reach the backend. Is the API running on http://localhost:8082?"
-              : err?.response?.data?.message || err.message || "Something went wrong."
-          );
+          setError(describeApiError(err));
         }
       })
       .finally(() => {

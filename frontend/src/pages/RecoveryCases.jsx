@@ -4,6 +4,7 @@ import useApi from "../hooks/useApi";
 import { getRecoveryCases, runRecoveryCase } from "../api/endpoints";
 import { EmptyBanner, ErrorBanner, LoadingBanner } from "../components/StatusBanner";
 import { formatCurrency, formatNumber } from "../utils/format";
+import { describeApiError } from "../api/client";
 
 // Filters map to query params per the API contract: type, riskTier, status.
 const FILTERS = [
@@ -133,7 +134,7 @@ export default function RecoveryCases() {
       setSelected(new Set());
       reload();
     } catch (err) {
-      setRunError(!err?.response ? "Couldn't reach the backend." : err?.response?.data?.message || err.message);
+      setRunError(describeApiError(err));
     } finally {
       setRunning(false);
       setProgress(null);

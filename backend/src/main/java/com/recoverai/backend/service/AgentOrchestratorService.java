@@ -230,7 +230,7 @@ public class AgentOrchestratorService {
                 .disputed(disputed)
                 .alreadySucceeded(false)
                 .amountAtRisk(rc.getAmountAtRisk())
-                .recoveryProbability(rc.getRecoveryProbability())
+                .recoveryProbability(selectedEvaluation.get().getRecoveryProbability())
                 .proposedAction(proposed)
                 .currentTime(simClockService.now())
                 .build();
@@ -241,12 +241,16 @@ public class AgentOrchestratorService {
                 decision.getReason(), Map.of("decision", decision.getReasonCode(), "allowed", decision.isAllowed()));
 
         if (decision.isEscalate()) {
+            rc.setSelectedAction(InterventionType.ESCALATE);
+            recoveryCaseRepository.save(rc);
             rc = stateMachineService.transition(rc, RecoveryState.ESCALATED, "HUMAN_ESCALATION", "POLICY_ENGINE",
                     decision.getReason(), null);
             counterfactualEvaluationService.recordActualOutcome(rc.getId(), 0.0);
             return rc;
         }
         if (decision.isStop()) {
+            rc.setSelectedAction(InterventionType.STOP);
+            recoveryCaseRepository.save(rc);
             rc = stateMachineService.transition(rc, RecoveryState.STOPPED, "WORKFLOW_STOPPED", "POLICY_ENGINE",
                     decision.getReason(), null);
             counterfactualEvaluationService.recordActualOutcome(rc.getId(), 0.0);

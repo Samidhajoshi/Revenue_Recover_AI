@@ -13,6 +13,7 @@ import {
 } from "../api/endpoints";
 import { ErrorBanner } from "../components/StatusBanner";
 import { formatCurrency, formatNumber, formatPercent } from "../utils/format";
+import { describeApiError } from "../api/client";
 
 export default function BatchSimulation() {
   const [running, setRunning] = useState(false);
@@ -43,7 +44,7 @@ export default function BatchSimulation() {
       setDetectResult(res.data.casesCreated);
       await refreshDetectionSummary();
     } catch (err) {
-      setDetectError(!err?.response ? "Couldn't reach the backend." : err?.response?.data?.message || err.message);
+      setDetectError(describeApiError(err));
     } finally {
       setDetecting(false);
     }
@@ -56,11 +57,7 @@ export default function BatchSimulation() {
       const res = await runSimulation();
       setResult(res.data);
     } catch (err) {
-      setError(
-        !err?.response
-          ? "Couldn't reach the backend. Is the API running on http://localhost:8082?"
-          : err?.response?.data?.message || err.message
-      );
+      setError(describeApiError(err));
     } finally {
       setRunning(false);
     }
@@ -405,12 +402,7 @@ function ImportRow({ label, onUpload, onDetected }) {
       });
       setUploaded(true);
     } catch (err) {
-      setStatus({
-        type: "error",
-        message: !err?.response
-          ? "Couldn't reach the backend."
-          : err?.response?.data?.message || err.message,
-      });
+      setStatus({ type: "error", message: describeApiError(err) });
     } finally {
       setBusy(false);
       setFile(null);
@@ -427,10 +419,7 @@ function ImportRow({ label, onUpload, onDetected }) {
       await onDetected?.();
     } catch (err) {
       setEvalResult(null);
-      setStatus({
-        type: "error",
-        message: !err?.response ? "Couldn't reach the backend." : err?.response?.data?.message || err.message,
-      });
+      setStatus({ type: "error", message: describeApiError(err) });
     } finally {
       setEvaluating(false);
     }
