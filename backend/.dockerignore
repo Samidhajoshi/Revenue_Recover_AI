@@ -1,0 +1,6 @@
+target
+data
+*.log
+.mvn
+.idea
+*.iml
