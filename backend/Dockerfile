@@ -14,7 +14,9 @@ RUN mvn -B -q -DskipTests package
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-COPY --from=build /app/target/recoverai-backend-*.jar app.jar
+# pom.xml sets <finalName>recoverai-backend</finalName>, so the packaged
+# jar has no version suffix - keep this in sync if that ever changes.
+COPY --from=build /app/target/recoverai-backend.jar app.jar
 
 # Render (and most PaaS) injects PORT at runtime; application.yml already
 # reads it via ${PORT:8082}. EXPOSE is documentation only, not enforced.

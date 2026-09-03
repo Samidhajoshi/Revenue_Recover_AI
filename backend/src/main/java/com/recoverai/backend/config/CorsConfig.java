@@ -16,7 +16,8 @@ public class CorsConfig implements WebMvcConfigurer {
         // Patterns (not allowedOrigins) so a Vercel preview-deployment wildcard
         // like https://your-app-*.vercel.app still works alongside allowCredentials(true).
         registry.addMapping("/api/**")
-                .allowedOriginPatterns(allowedOrigins.split(","))
+                .allowedOriginPatterns(java.util.Arrays.stream(allowedOrigins.split(","))
+                        .map(String::trim).toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
