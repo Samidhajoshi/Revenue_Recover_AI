@@ -1,38 +1,24 @@
-# RecoverAI — Autonomous Revenue Recovery Controller
+# RecoverAI — Autonomous Revenue Recovery System
 
-RecoverAI detects revenue at risk — failed payments, failed subscription renewals, degrading payment gateways — diagnoses the cause, evaluates every plausible intervention side by side, executes only the one policy allows and expects to work best, and audits every step.
+RecoverAI is a simple revenue recovery system that detects failed payments, analyzes why they failed, estimates recovery risk, evaluates possible recovery actions, applies business policies, and executes the safest action.
 
-**Core principle:** AI decides what is likely to work. Policy decides what is allowed. The state machine decides what happens next.
+The goal is to reduce lost revenue while keeping recovery decisions explainable and policy-controlled.
 
-## Results
+## Features
 
-Full 10,000-transaction / 1,000-subscription synthetic batch, agent vs. a naive baseline (every failed payment retried once, no diagnosis, no policy):
-
-| | Baseline | RecoverAI |
-|---|---|---|
-| Recovery rate | — | **75%** |
-| Revenue recovered | ₹2.58Cr | **₹9.69Cr** |
-| Improvement | — | **+275.56%** |
-| Policy violations | — | **0** |
-
-## Architecture
-
-```
-React Dashboard (:5173)
-        │ REST
-        ▼
-Spring Boot Core (:8082)
-   ├── H2 database (file-based; MySQL is a config swap away)
-   ├── State machine + Policy engine
-   ├── Counterfactual evaluation engine
-   └── Recovery simulator
-        │
-        ├──▶ FastAPI ML Service (:8000) — risk scoring, root-cause diagnosis
-        └──▶ Groq LLM — recovery messages, promise-to-pay extraction
-```
-
-Four independent services, each owning one concern, talking over REST. The ML service and the LLM both degrade gracefully to an in-process fallback if unreachable — the agent loop never stalls on an external dependency.
-
+- Detect failed payments and create recovery cases
+- Calculate explainable risk scores and risk tiers
+- Estimate recovery probability
+- Diagnose high-failure segments by gateway, bank, payment method, and region
+- Detect gateway-level anomalies
+- Evaluate multiple recovery actions using counterfactual analysis
+- Apply policy rules before execution
+- Re-evaluate after failed interventions
+- Track recovery attempts and final outcomes
+- Generate customer-friendly recovery messages with an LLM
+- Extract Promise-to-Pay information from customer messages
+- Segment customers using LTV and payment reliability
+- Provide a React dashboard for cases, customers, simulations, and analysis
 ### The agent loop
 
 ```
@@ -43,6 +29,50 @@ event arrives → create case → risk + diagnosis → generate candidate action
 ```
 
 Every arrow above is a transition in `StateMachineService`, and every transition writes an `AuditLog` row — nothing changes case state outside that one path, so the audit trail is complete by construction.
+
+## Project structure
+
+```
+Revenue_Recovery/
+├── backend/                  Spring Boot core (Java 17, Maven)
+│   ├── src/main/java/com/recoverai/backend/
+│   │   ├── config/           CORS, WebClient, policy properties, startup data seeder
+│   │   ├── controller/       REST endpoints
+│   │   ├── dto/               Request/response shapes (incl. dto/ml/ — ml-service contracts)
+│   │   ├── entity/            JPA entities (RecoveryCase, Transaction, ActionEvaluation, ...)
+│   │   ├── repository/        Spring Data JPA repositories
+│   │   └── service/           State machine, policy engine, counterfactual engine, LLM client
+│   ├── src/main/resources/
+│   │   ├── application.yml    All configuration (policy thresholds, ML/LLM URLs, CORS, DB)
+│   │   └── seed-data/         Bundled synthetic dataset, auto-loaded on first boot
+│   ├── data/                  H2 database files (file-based, gitignored in spirit — local only)
+│   ├── Dockerfile             Multi-stage build for deployment (e.g. Render)
+│   └── pom.xml
+│
+├── ml-service/                FastAPI ML service (Python)
+│   ├── ml/
+│   │   ├── main.py            App entrypoint — uvicorn ml.main:app
+│   │   ├── risk.py            Weighted risk scoring
+│   │   ├── diagnosis.py       Failure-rate-delta root-cause analysis
+│   │   ├── gateway_anomaly.py Gateway degradation detection
+│   │   └── schemas.py         Pydantic request/response models (the source of truth for contracts)
+│   └── requirements.txt
+│
+├── frontend/                  React + Vite dashboard
+│   └── src/
+│       ├── pages/              Overview, RecoveryCases, CaseDetails, Customers, BatchSimulation
+│       ├── components/         Shared UI (Layout, StatusBanner, ...)
+│       ├── api/                Axios client + endpoint functions
+│       ├── hooks/               useApi data-fetching hook
+│       └── utils/                Formatting helpers
+│
+├── data_generator/            Synthetic dataset generator (Python, seeded/config-driven)
+│   ├── run_all.py
+│   ├── scenario_config.json    Distribution + probability assumptions (not hardcoded)
+│   └── output/                 Generated CSVs (customers, transactions, subscriptions, gateways)
+│
+└── docs/                       Original implementation plan documents
+```
 
 ## What's in each service
 
@@ -83,9 +113,14 @@ Two jobs only — the LLM never makes a financial decision:
 
 Runs on Groq (`openai/gpt-oss-120b`, OpenAI-compatible chat-completions API, called via raw HTTP since Groq has no official Java SDK). Every response carries `llmUsed: true|false` — an honest report of whether the real API call succeeded, not a guess — and falls back to a templated message if the key is missing or the call fails.
 
-## Running it locally
+## Clone & run
 
-Three services, started in order. Each needs its own terminal (or run in the background).
+```bash
+git clone <this-repo-url> revenue-recovery
+cd revenue-recovery
+```
+
+Three services, started in order. Each needs its own terminal (or run in the background). Requires Java 17+, Maven, Python 3.11+, and Node 18+.
 
 ```bash
 # 1. ML service
@@ -104,22 +139,18 @@ npm install
 npm run dev                        # serves :5173
 ```
 
-Then load the synthetic dataset (order matters — customers and gateways before transactions/subscriptions):
+Open `http://localhost:5173` — the backend auto-loads the bundled 10,000-transaction synthetic dataset on first boot (see `DataSeeder`, `backend/src/main/resources/seed-data/`), so there's nothing to import manually. From the dashboard: **Batch Simulation → RUN 10,000 CASES** runs the full agent loop end to end, or **Detect at-risk cases** to see live "revenue at risk" numbers before anything executes.
+
+The H2 database is file-based (`backend/data/recoverai.mv.db`), so data survives a restart. Delete it to start over from scratch — the seeder will reload the bundled dataset on the next boot. Switching to MySQL/Postgres is a config swap in `backend/src/main/resources/application.yml`, already commented in place. Set `SEED_ON_STARTUP=false` to disable auto-seeding (e.g. once you're working with real imported data).
+
+To load a different dataset instead of the bundled one:
 
 ```bash
 curl -F "file=@data_generator/output/customers.csv"     localhost:8082/api/import/customers
 curl -F "file=@data_generator/output/gateways.csv"      localhost:8082/api/import/gateways
 curl -F "file=@data_generator/output/transactions.csv"  localhost:8082/api/import/transactions
 curl -F "file=@data_generator/output/subscriptions.csv" localhost:8082/api/import/subscriptions
-
-# See live "revenue at risk" numbers before running anything:
-curl -X POST localhost:8082/api/agent/detect
-
-# Or run the full batch end to end:
-curl -X POST localhost:8082/api/simulation/run
 ```
-
-Open `http://localhost:5173` to browse the dashboard. The H2 database is file-based (`backend/data/recoverai.mv.db`), so data survives a restart — delete it to start fresh. Switching to MySQL is a five-line change in `backend/src/main/resources/application.yml`, already commented in place.
 
 ## Regenerating the synthetic dataset
 
@@ -158,6 +189,56 @@ Four scenarios from the original plan's demo script, each with a stable case ID 
 | POST | `/api/agent/{id}/message` | LLM-generated recovery message |
 | POST | `/api/agent/{id}/promise-to-pay` | LLM promise-to-pay extraction |
 
-## What's not built
 
-From the original plan's stretch list: checkout-abandonment recovery, B2B receivables chasing, voice-based recovery, and dynamic intervention optimization (a bandit/RL approach replacing the static configured probabilities once real outcome data accumulates).
+## Architecture
+
+```text
+                    React Frontend
+                          |
+                          v
+                   Spring Boot API
+                          |
+        +-----------------+------------------+
+        |                 |                  |
+        v                 v                  v
+   Risk Service      Diagnosis          Gateway Anomaly
+        |                 |                  |
+        +-----------------+------------------+
+                          |
+                          v
+                Counterfactual Evaluation
+                          |
+                          v
+                    Policy Engine
+                          |
+                          v
+                  Agent Orchestrator
+                          |
+                          v
+                      H2 DB
+
+                    LLM Service
+                 /              \
+       Recovery Messages    Promise Extraction
+
+```
+## System Architecture
+<img width="4255" height="4449" alt="mermaid-diagram-1788327852011" src="https://github.com/user-attachments/assets/ebdad0da-8e6b-4c45-97e8-ea3c0a23198a" />
+
+
+## Snapshots 
+
+## Dashboard
+<img width="1916" height="1026" alt="Screenshot 2026-09-03 103628" src="https://github.com/user-attachments/assets/bc8e124e-a40e-451a-ad44-f1079935b3ac" />
+
+## Batch Simulation 
+<img width="1912" height="1012" alt="Screenshot 2026-09-03 103836" src="https://github.com/user-attachments/assets/46acbaed-1d9d-41d1-a899-c9665fc4f1d8" />
+
+## Customers 
+<img width="1915" height="1037" alt="Screenshot 2026-09-03 103815" src="https://github.com/user-attachments/assets/1cf7ada2-c110-4f9d-accf-385acc18042c" />
+
+## Cases 
+<img width="1913" height="1032" alt="Screenshot 2026-09-03 103725" src="https://github.com/user-attachments/assets/4db25a12-c1c4-4653-9294-037d1e9bef03" />
+
+## Try at
+https://revenue-recover-ai.vercel.app/
