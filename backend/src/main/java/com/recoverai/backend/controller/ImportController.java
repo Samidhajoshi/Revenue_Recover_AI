@@ -18,7 +18,7 @@ public class ImportController {
     @PostMapping(value = "/customers", consumes = "multipart/form-data")
     public ResponseEntity<?> importCustomers(@RequestParam("file") MultipartFile file) {
         try {
-            int count = csvImportService.importCustomers(file);
+            int count = csvImportService.importCustomers(file.getInputStream());
             return ResponseEntity.ok(Map.of("imported", count, "entity", "customers"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -28,7 +28,7 @@ public class ImportController {
     @PostMapping(value = "/transactions", consumes = "multipart/form-data")
     public ResponseEntity<?> importTransactions(@RequestParam("file") MultipartFile file) {
         try {
-            int count = csvImportService.importTransactions(file);
+            int count = csvImportService.importTransactions(file.getInputStream());
             return ResponseEntity.ok(Map.of("imported", count, "entity", "transactions"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -38,7 +38,7 @@ public class ImportController {
     @PostMapping(value = "/subscriptions", consumes = "multipart/form-data")
     public ResponseEntity<?> importSubscriptions(@RequestParam("file") MultipartFile file) {
         try {
-            int count = csvImportService.importSubscriptions(file);
+            int count = csvImportService.importSubscriptions(file.getInputStream());
             return ResponseEntity.ok(Map.of("imported", count, "entity", "subscriptions"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -48,7 +48,7 @@ public class ImportController {
     @PostMapping(value = "/gateways", consumes = "multipart/form-data")
     public ResponseEntity<?> importGateways(@RequestParam("file") MultipartFile file) {
         try {
-            int count = csvImportService.importGateways(file);
+            int count = csvImportService.importGateways(file.getInputStream());
             return ResponseEntity.ok(Map.of("imported", count, "entity", "gateways"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

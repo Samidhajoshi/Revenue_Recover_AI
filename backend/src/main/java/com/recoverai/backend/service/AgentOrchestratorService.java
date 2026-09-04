@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * The core agent orchestration loop (section 14):
@@ -161,26 +162,17 @@ public class AgentOrchestratorService {
         if (rc.getEntityType() == EntityType.GATEWAY) {
             Gateway gw = gatewayRepository.findById(rc.getEntityId()).orElse(null);
             GatewayAnomalyResponse anomaly = mlClientService.gatewayAnomaly(GatewayAnomalyRequest.builder()
-                    .gatewayId(rc.getEntityId())
+                    .gateway(rc.getEntityId())
                     .currentFailureRate(gw == null ? null : gw.getFailureRate())
                     .baselineFailureRate(gw == null ? null : gw.getBaselineFailureRate())
                     .build());
             diagnosisText = "Gateway " + rc.getEntityId() + " failure rate " + asPercent(gw == null ? null : gw.getFailureRate())
                     + "% vs baseline " + asPercent(gw == null ? null : gw.getBaselineFailureRate())
-                    + "% - severity " + anomaly.getSeverity() + ". " + anomaly.getRecommendation();
+                    + "% - severity " + anomaly.getSeverity() + ". " + anomaly.getRecommendedAction();
         } else {
-            Transaction tx = rc.getEntityType() == EntityType.PAYMENT
-                    ? transactionRepository.findById(rc.getEntityId()).orElse(null)
-                    : null;
-            DiagnoseResponse diag = mlClientService.diagnose(DiagnoseRequest.builder()
-                    .entityType(rc.getEntityType().name())
-                    .failureReason(failureReason)
-                    .bank(tx == null ? null : tx.getBank())
-                    .paymentMethod(tx == null ? null : tx.getPaymentMethod())
-                    .region(tx == null ? null : tx.getRegion())
-                    .gateway(tx == null ? null : tx.getGateway())
-                    .build());
-            diagnosisText = diag.getDiagnosis() + " (root cause path: " + diag.getRootCause() + ")";
+            // The ranked root-cause segments are dataset-wide, not case-specific, so
+            // every non-gateway case in a run shares the same ml-service call.
+            diagnosisText = describeDiagnosis(getSharedDiagnosis(), failureReason);
         }
         rc.setDiagnosis(diagnosisText);
         recoveryCaseRepository.save(rc);
@@ -342,6 +334,60 @@ public class AgentOrchestratorService {
 
     private String asPercent(Double fraction) {
         return fraction == null ? "?" : String.valueOf(Math.round(fraction * 1000.0) / 10.0);
+    }
+
+    // Dataset-wide, so it's identical for every case in a run - recomputing it (and
+    // re-hitting ml-service) per case turned a batch run of thousands of cases into
+    // thousands of extra GROUP BY queries plus thousands of ml-service round trips -
+    // the ranked result is dataset-wide and identical for every case regardless, so
+    // it's cached whole with a short TTL instead: cheap enough to go stale for a few
+    // seconds after an import, far cheaper than once per case.
+    private volatile DiagnoseResponse cachedDiagnosis;
+    private volatile long diagnosisCachedAt = 0;
+    private static final long DIAGNOSIS_CACHE_MS = 30_000;
+
+    private synchronized DiagnoseResponse getSharedDiagnosis() {
+        long now = System.currentTimeMillis();
+        if (cachedDiagnosis != null && (now - diagnosisCachedAt) < DIAGNOSIS_CACHE_MS) {
+            return cachedDiagnosis;
+        }
+        List<TransactionRecordDto> transactions = transactionRepository.aggregateByStatusAndDimensions().stream()
+                .map(row -> TransactionRecordDto.builder()
+                        .status(String.valueOf(row[0]))
+                        .bank((String) row[1])
+                        .paymentMethod((String) row[2])
+                        .region((String) row[3])
+                        .gateway((String) row[4])
+                        .count(((Number) row[5]).intValue())
+                        .build())
+                .collect(Collectors.toList());
+        cachedDiagnosis = mlClientService.diagnose(DiagnoseRequest.builder().transactions(transactions).build());
+        diagnosisCachedAt = now;
+        return cachedDiagnosis;
+    }
+
+    /** Builds the human-readable diagnosis text from ml-service's ranked root causes (or the local fallback note). */
+    private String describeDiagnosis(DiagnoseResponse diag, String failureReason) {
+        String reason = failureReason == null ? "unknown" : failureReason.replace('_', ' ').toLowerCase();
+        if (diag.getDiagnosisNote() != null) {
+            return reason + " - " + diag.getDiagnosisNote();
+        }
+        List<RootCauseSegmentDto> rootCauses = diag.getRootCauses();
+        if (rootCauses == null || rootCauses.isEmpty()) {
+            return reason + " - no dominant failure segment found above baseline ("
+                    + asPercent(diag.getOverallFailureRate()) + "% overall failure rate across "
+                    + (diag.getTotalTransactions() == null ? 0 : diag.getTotalTransactions()) + " transactions)";
+        }
+        RootCauseSegmentDto top = rootCauses.get(0);
+        String path = top.getDimensions() == null ? "" : String.join(" -> ", top.getDimensions().values());
+        return reason + " - dominant failure segment: " + top.getLabel()
+                + " (" + top.getFailedCount() + "/" + top.getSampleSize() + " failed, "
+                + asPercent(top.getSegmentFailureRate()) + "% vs " + asPercent(top.getOverallFailureRate())
+                + "% baseline, " + roundLift(top.getLift()) + "x lift; root cause path: " + path + ")";
+    }
+
+    private String roundLift(Double lift) {
+        return lift == null ? "?" : String.valueOf(Math.round(lift * 10.0) / 10.0);
     }
 
     private RecoveryCase getCase(Long id) {

@@ -17,8 +17,8 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
@@ -49,9 +49,9 @@ public class CsvImportService {
             .setTrim(true)
             .build();
 
-    public int importCustomers(MultipartFile file) throws Exception {
+    public int importCustomers(InputStream inputStream) throws Exception {
         int count = 0;
-        try (Reader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+        try (Reader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
              CSVParser parser = FORMAT.parse(reader)) {
             for (CSVRecord rec : parser) {
                 String id = get(rec, "id");
@@ -75,9 +75,9 @@ public class CsvImportService {
         return count;
     }
 
-    public int importTransactions(MultipartFile file) throws Exception {
+    public int importTransactions(InputStream inputStream) throws Exception {
         int count = 0;
-        try (Reader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+        try (Reader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
              CSVParser parser = FORMAT.parse(reader)) {
             for (CSVRecord rec : parser) {
                 String customerId = get(rec, "customer_id");
@@ -106,9 +106,9 @@ public class CsvImportService {
         return count;
     }
 
-    public int importSubscriptions(MultipartFile file) throws Exception {
+    public int importSubscriptions(InputStream inputStream) throws Exception {
         int count = 0;
-        try (Reader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+        try (Reader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
              CSVParser parser = FORMAT.parse(reader)) {
             for (CSVRecord rec : parser) {
                 String customerId = get(rec, "customer_id");
@@ -133,9 +133,9 @@ public class CsvImportService {
         return count;
     }
 
-    public int importGateways(MultipartFile file) throws Exception {
+    public int importGateways(InputStream inputStream) throws Exception {
         int count = 0;
-        try (Reader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+        try (Reader reader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
              CSVParser parser = FORMAT.parse(reader)) {
             for (CSVRecord rec : parser) {
                 Gateway gw = gatewayRepository.findById(get(rec, "id")).orElseGet(Gateway::new);

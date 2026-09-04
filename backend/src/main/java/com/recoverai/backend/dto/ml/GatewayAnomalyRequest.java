@@ -10,7 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class GatewayAnomalyRequest {
-    private String gatewayId;
+    // ml-service's schema requires "gateway", not "gateway_id" - it was never being sent
+    // before this fix, which is why every gateway-case diagnosis was 422ing.
+    private String gateway;
     private Double currentFailureRate;
     private Double baselineFailureRate;
 }

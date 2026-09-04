@@ -58,6 +58,12 @@ recoverai:
     timeout-ms: 2000
     enabled: true
 
+  # Auto-loads the bundled synthetic dataset on startup if the database is empty
+  # (see DataSeeder) - set SEED_ON_STARTUP=false to disable, e.g. once you're
+  # importing real data and don't want an empty DB auto-filled with demo rows.
+  seed:
+    enabled: ${SEED_ON_STARTUP:true}
+
   policy:
     max-retries: 3
     quiet-hours:

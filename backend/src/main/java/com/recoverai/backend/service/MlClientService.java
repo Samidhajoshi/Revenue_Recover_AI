@@ -131,24 +131,14 @@ public class MlClientService {
                 .build();
     }
 
+    // The caller (AgentOrchestratorService) now sends only the dataset-wide
+    // transactions aggregate here - no per-case fields - since the ranked root
+    // causes are identical for every case in a run. There's nothing case-specific
+    // left to build a detailed fallback from; the caller prefixes this note with
+    // the case's own failure reason.
     private DiagnoseResponse heuristicDiagnose(DiagnoseRequest r) {
-        StringBuilder sb = new StringBuilder();
-        String reason = r.getFailureReason() == null ? "UNKNOWN" : r.getFailureReason();
-        sb.append(reason.replace('_', ' ').toLowerCase()).append(" via ");
-        sb.append(r.getPaymentMethod() != null ? r.getPaymentMethod() : "unknown method");
-        if (r.getBank() != null) sb.append(" at ").append(r.getBank());
-        if (r.getRegion() != null) sb.append(" (").append(r.getRegion()).append(" region)");
-        if (r.getGateway() != null) sb.append(" via gateway ").append(r.getGateway());
-
-        String rootCause = (r.getGateway() != null ? r.getGateway() : "unknown-gateway") + " -> "
-                + (r.getPaymentMethod() != null ? r.getPaymentMethod() : "unknown-method") + " -> "
-                + (r.getBank() != null ? r.getBank() : "unknown-bank") + " -> "
-                + (r.getRegion() != null ? r.getRegion() : "unknown-region");
-
         return DiagnoseResponse.builder()
-                .diagnosis(sb.toString())
-                .rootCause(rootCause)
-                .confidence(0.5)
+                .diagnosisNote("root-cause analysis unavailable (ml-service unreachable)")
                 .build();
     }
 
@@ -164,13 +154,16 @@ public class MlClientService {
         else if (delta > 0.08) severity = "HIGH";
         else if (delta > 0.03) severity = "MEDIUM";
         else severity = "LOW";
-        String recommendation = anomalous
-                ? "Reroute affected traffic away from " + r.getGatewayId() + " to a healthy alternate gateway."
+        String recommendedAction = anomalous
+                ? "Reroute affected traffic away from " + r.getGateway() + " to a healthy alternate gateway."
                 : "No action required; failure rate within normal bounds.";
         return GatewayAnomalyResponse.builder()
-                .anomalous(anomalous)
+                .anomalyDetected(anomalous)
                 .severity(severity)
-                .recommendation(recommendation)
+                .baselineFailureRate(baseline)
+                .currentFailureRate(current)
+                .delta(delta)
+                .recommendedAction(recommendedAction)
                 .build();
     }
 

@@ -1,0 +1,5 @@
+id,name,success_rate,failure_rate,baseline_failure_rate,status,cost_per_transaction,last_updated
+GW1,Gateway A,0.822,0.178,0.023,DEGRADED,2.5,2026-08-26 09:00:00
+GW2,Gateway B,0.976,0.024,0.021,HEALTHY,2.0,2026-08-26 09:00:00
+GW3,Gateway C,0.968,0.032,0.03,HEALTHY,1.8,2026-08-26 09:00:00
+GW4,Gateway D,0.973,0.027,0.025,HEALTHY,2.2,2026-08-26 09:00:00

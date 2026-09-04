@@ -8,10 +8,11 @@ import axios from "axios";
 // identically in `npm run dev` and a static `npm run build` preview.
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8082",
-  // Detection/batch-run scan the whole dataset synchronously and can run well
-  // past 15s on a real-sized CSV - a short timeout here reads to the user as
-  // "can't reach the backend" when it's actually just still working.
-  timeout: 120000,
+  // A fresh full-size run (10k transactions / ~3.7k cases) does one /risk call
+  // per case sequentially and genuinely takes ~3 minutes end to end - a short
+  // timeout here reads to the user as "can't reach the backend" when it's
+  // actually just still working.
+  timeout: 300000,
 });
 
 // Distinguishes a real connection failure from a request that's just still
